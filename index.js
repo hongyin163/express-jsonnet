@@ -82,6 +82,7 @@ function createRoute(options) {
         var pathname = parseurl(req).pathname;
         if (!config[pathname]) {
             next();
+            return;
         }
 
 
