@@ -1,0 +1,6 @@
+{
+	"/index/":{
+		"data":"./data/index.json",
+		"tpl":"./tpl/index.jsonnet"
+	}
+}

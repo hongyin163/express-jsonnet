@@ -34,11 +34,16 @@ exports.renderFile = function (path, options, fn) {
         
         try {
             code = applyModule(code, options);
-            code = jsonnet.transform(code);
+            jsonnet.transform(code,function(err,data){
+                if(err.length>0){
+                    fn(err);
+                }else{
+                    fn(null, data);
+                }
+            });
         } catch (ex) {
             return fn(ex);
         }
-        return fn(null, code);
     });
 };
 
@@ -85,7 +90,7 @@ function handler(source, callback) {
 function createRoute(options) {
     options = options || {};
     var routeFile = options.routeFile;
-
+   
     var config = require(routeFile);
     var configFolder = path.dirname(routeFile);
     var tplPath = path.resolve(__dirname, options.jsonFolder || '');
