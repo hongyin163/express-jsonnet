@@ -1,9 +1,8 @@
 var fs = require('fs');
 var path = require('path');
-var Jsonnet = require('./lib/jsonnet');
+var jsonnet = require('node-addon-jsonnet');
+var http = require('axios');
 var parseurl = require('parseurl');
-
-var jsonnet = new Jsonnet();
 
 exports.cache = {};
 
@@ -46,12 +45,26 @@ exports.renderFile = function (path, options, fn) {
 
 function getDataFormSource(src, callback) {
     if (typeof src == 'object') {
-        callback(src);
-    } else if (src.indexOf('http') == 0) {
-        callback(JSON.parse(src));
+        callback&&callback(src);
     }
-    else if (src.indexOf('{' == 0)) {
-        callback(JSON.parse(src));
+    else if(typeof src == 'string'){
+        if (src.indexOf('http') == 0) {
+             http.get(src)
+                .then(function (response) {
+                    var entity = response.data;
+                    callback&&callback(entity);
+                })
+                .catch(function (err) {
+                   callback&&callback({});
+                });
+        }
+        else if (src.indexOf('{' == 0)) {
+            callback&&callback(JSON.parse(src));
+        }else{
+            callback&&callback({});
+        }
+    }else{
+        callback&&callback({});
     }
 }
 
@@ -81,8 +94,7 @@ function createRoute(options) {
     return function (req, res, next) {
         var pathname = parseurl(req).pathname;
         if (!config[pathname]) {
-            next();
-            return;
+            return next();
         }
 
 

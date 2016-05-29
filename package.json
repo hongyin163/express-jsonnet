@@ -32,6 +32,8 @@
   "_where": "D:\\Workfolder\\testproject1",
   "author": "",
   "dependencies": {
+    "axios": "^0.11.1",
+    "node-addon-jsonnet": "^1.0.1",
     "parseurl": "^1.3.1"
   },
   "description": "",
@@ -44,9 +46,9 @@
   "main": "index.js",
   "name": "express-jsonnet",
   "optionalDependencies": {},
-  "readme": "ERROR: No README data found!",
+  "readmeFile": "README.md",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "version": "1.0.1"
+  "version": "1.0.2"
 }
