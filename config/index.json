@@ -1,6 +1,12 @@
 {
 	"/index/":{
-		"data":"./data/index.json",
+		"data":"./data/index.js",
 		"tpl":"./tpl/index.jsonnet"
+	},
+	"/nodata/":{
+		"tpl":"./tpl/user.jsonnet"
+	},
+	"/notpl/":{
+		"data":"./data/index.js"
 	}
 }
