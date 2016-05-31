@@ -29,5 +29,8 @@ module.exports = {
 	},
 	mongodb: function (argument) {
 		// body...
+	},
+	sql:function (argument) {
+		
 	}
 }

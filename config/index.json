@@ -8,5 +8,13 @@
 	},
 	"/notpl/":{
 		"data":"./data/index.js"
+	},
+	"/index/:id/":{
+		"data":"./data/index.js",
+		"tpl":"./tpl/index.jsonnet"
+	},
+	"/tpljs/:id/":{
+		"data":"./data/index.js",
+		"tpl":"./tpl/index.js"
 	}
 }

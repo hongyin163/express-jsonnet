@@ -1,53 +1,24 @@
 var fs = require('fs');
 var path = require('path');
-var jsonnet = require('node-addon-jsonnet');
+// var jsonnet = require('node-addon-jsonnet');
 var http = require('axios');
 var parseurl = require('parseurl');
 var plugmanger = require('./src/plugins_manager');
+var transformer_factory = require('./src/transformer_factory');
+var router = require('./src/router');
+var _ = require('lodash');
+
 exports.cache = {};
 
-function applyModule(code, options) {
-    var str = '';
 
-    if (!code) {
-        return JOSN.stringify(options);
-    }
-
-    for (var pro in options) {
-        if (typeof options[pro] === 'object') {
-            str += 'local ' + pro + "=" + JSON.stringify(options[pro]) + ';';
-        } else if (typeof options[pro] === 'string') {
-            if ((/\{[^\}]*\}/g).test(options[pro]) || (/\[[^\]]*\]/g).test(options[pro])) {
-                str += 'local ' + pro + "=" + options[pro] + ';';
-            } else {
-                str += 'local ' + pro + "=\"" + options[pro] + '\";';
-            }
-        } else {
-            str += 'local ' + pro + "=" + options[pro] + ';';
-        }
-    }
-
-    return str + code;
-}
 
 exports.renderFile = function (path, options, fn) {
     options = options || {};
-    fs.readFile(path, 'utf8', function (err, code) {
-        if (!code) {
-            return fn(null, options);
-        }
-
-        try {
-            code = applyModule(code, options);
-            jsonnet.transform(code, function (err, data) {
-                if (err.length > 0) {
-                    fn(err);
-                } else {
-                    fn(null, data);
-                }
-            });
-        } catch (ex) {
-            return fn(ex);
+    transformer.transformFile(path, options, function (err, data) {
+        if (err) {
+            fn(err);
+        } else {
+            fn(null, data);
         }
     });
 };
@@ -91,7 +62,9 @@ function handler(source, callback) {
     }
 }
 
-
+var transformer;
+_.templateSettings.interpolate = /{([\s\S]+?)}/g;
+// var compiled = _.template('hello {{ user }}!');
 function createRoute(options) {
     options = options || {};
     var routeFile = options.routeFile;
@@ -103,23 +76,28 @@ function createRoute(options) {
 
     return function (req, res, next) {
         var pathname = parseurl(req).pathname;
-        if (!config[pathname]) {
+        if (!router.match(config, pathname)) {
             return next();
         }
 
-        var tpl = config[pathname]['tpl'];
-        var src = config[pathname]['data'];
+        var tpl = config[router.path]['tpl'];
+        var src = config[router.path]['data'];
 
         if (!tpl && !src) {
             return res.send("Not config data source and data template");
         }
 
+        transformer = transformer_factory.create(path.extname(tpl));
+
+        //only have jsonnet tpl
         if (tpl && !src) {
-            return jsonnet.transformFile(path.resolve(configFolder, tpl), function (err, data) {
-                if (err.length > 0) {
-                    return res.send(err);
+            return exports.renderFile(path.resolve(configFolder, tpl), null, function (err, coderesult) {
+                res.setHeader('Content-Type', 'application/json');
+                if (!err) {
+                    res.send(coderesult);
                 } else {
-                    return res.send(data);
+                    res.statusCode = '505';
+                    res.send({ message: err.message });
                 }
             });
         }
@@ -127,7 +105,13 @@ function createRoute(options) {
         var source = require(path.resolve(configFolder, src));
         var srcArray = [];
         for (var pro in source) {
-            srcArray.push({ name: pro, src: source[pro] });
+
+            var srcdata = source[pro];
+            if (typeof srcdata == 'string') {
+                srcdata = _.template(srcdata)(router.params);
+            }
+
+            srcArray.push({ name: pro, src: srcdata });
         }
 
         results = {}
