@@ -1,16 +1,24 @@
 var fs = require('fs');
 var path = require('path');
 // var jsonnet = require('node-addon-jsonnet');
-var http = require('axios');
 var parseurl = require('parseurl');
-var plugmanger = require('./src/plugins_manager');
+var adapter_manager = require('./src/adapters_manager');
 var transformer_factory = require('./src/transformer_factory');
 var router = require('./src/router');
 var _ = require('lodash');
+var __cache = {};
 
-exports.cache = {};
-
-
+var default_cache = {
+    set: function (key, value) {
+        key = key.replace(/[\/,\?=]/g, '');
+        __cache[key] = value;
+    },
+    get: function (key, callback) {
+        key = key.replace(/[\/,\?=]/g, '');
+        var result = __cache[key];
+        callback && callback(result);
+    }
+};
 
 exports.renderFile = function (path, options, fn) {
     options = options || {};
@@ -23,7 +31,6 @@ exports.renderFile = function (path, options, fn) {
     });
 };
 
-
 function getDataFormSource(src, callback) {
 
     if (typeof src == 'object') {
@@ -32,11 +39,11 @@ function getDataFormSource(src, callback) {
 
     if (typeof src == 'string') {
         var srctype = src.substring(0, src.indexOf('://'))
-        var func = plugmanger.get(srctype);
+        var func = adapter_manager.get(srctype);
         if (func) {
-            return func(src, callback)
+            return func(src, __options, callback)
         } else {
-            throw new Error('Not find data source plugin :' + srctype);
+            throw new Error('Not find data source adapter :' + srctype);
         }
     }
     if (typeof src == 'function') {
@@ -65,79 +72,106 @@ function handler(source, callback) {
 var transformer;
 _.templateSettings.interpolate = /{([\s\S]+?)}/g;
 // var compiled = _.template('hello {{ user }}!');
-function createRoute(options) {
-    options = options || {};
-    var routeFile = options.routeFile;
+var __options = {
+    cache: default_cache,
+    routeFile: __dirname,
+    enalbeCache: true
+};
+function create_route(options) {
+    __options = Object.assign(__options, options);
 
-    var config = require(routeFile);
-    var configFolder = path.dirname(routeFile);
-    var tplPath = path.resolve(__dirname, options.jsonFolder || '');
-    var srcPath = path.resolve(__dirname, options.srcFolder || '');
+    __options['routeConfig'] = require(__options.routeFile);
+    __options['configFolder'] = path.dirname(__options.routeFile);
+    // var tplPath = path.resolve(__dirname, options.jsonFolder || '');
+    // var srcPath = path.resolve(__dirname, options.srcFolder || '');
 
     return function (req, res, next) {
-        var pathname = parseurl(req).pathname;
-        if (!router.match(config, pathname)) {
+        req['pathname'] = parseurl(req).pathname;
+        if (!router.match(__options.routeConfig, req.pathname)) {
             return next();
         }
 
-        var tpl = config[router.path]['tpl'];
-        var src = config[router.path]['data'];
-
-        if (!tpl && !src) {
-            return res.send("Not config data source and data template");
+        if (__options.enalbeCache) {
+            __options.cache.get(req.pathname, function (result) {
+                if (result) {
+                    return res.send(result);
+                } else {
+                    handle_request(req, res, next)
+                }
+            });
+        } else {
+            handle_request(req, res, next)
         }
+    }
+}
 
+function handle_request(req, res, next) {
+    var pathname = req.pathname;
+    var routeConfig = __options.routeConfig;
+    var configFolder = __options.configFolder;
+    var tpl = routeConfig[router.route_path]['tpl'];
+    var src = routeConfig[router.route_path]['data'];
+
+    if (!tpl && !src) {
+        return res.send("Not config data source and data template");
+    }
+    var tplFilePath='',dataFilePath='';
+    //only have jsonnet tpl
+    if (tpl && !src) {
+        tplFilePath = path.resolve(configFolder, tpl);
         transformer = transformer_factory.create(path.extname(tpl));
+        return exports.renderFile(tplFilePath, null, function (err, coderesult) {
+            res.setHeader('Content-Type', 'application/json');
+            if (!err) {
+                res.send(coderesult);
+                __options.enalbeCache && __options.cache.set(pathname, coderesult);
+            } else {
+                res.statusCode = '505';
+                res.send({ message: err.message });
+            }
+        });
+    }   
+    //have src
+    dataFilePath = path.resolve(configFolder, src);
+    //获取数据源配置
+    var source = require(dataFilePath);
+    var srcArray = [];
+    for (var pro in source) {
+        var srcdata = source[pro];
+        if (typeof srcdata == 'string') {
+            srcdata = _.template(srcdata)(Object.assign(__options, router.params));
+        }
+        srcArray.push({ name: pro, src: srcdata });
+    }
 
-        //only have jsonnet tpl
-        if (tpl && !src) {
-            return exports.renderFile(path.resolve(configFolder, tpl), null, function (err, coderesult) {
+    results = {}
+    try {
+        handler(srcArray, function (data) {
+            //only src
+            if (!tpl) {
+                return res.send(data);
+            }
+            //tpl and src 
+            tplFilePath = path.resolve(configFolder, tpl);
+            transformer = transformer_factory.create(path.extname(tpl));
+            exports.renderFile(tplFilePath, data, function (err, coderesult) {
                 res.setHeader('Content-Type', 'application/json');
                 if (!err) {
                     res.send(coderesult);
+                    __options.enalbeCache && __options.cache.set(pathname, coderesult);
                 } else {
                     res.statusCode = '505';
                     res.send({ message: err.message });
                 }
             });
-        }
-        //获取数据源配置
-        var source = require(path.resolve(configFolder, src));
-        var srcArray = [];
-        for (var pro in source) {
 
-            var srcdata = source[pro];
-            if (typeof srcdata == 'string') {
-                srcdata = _.template(srcdata)(router.params);
-            }
-
-            srcArray.push({ name: pro, src: srcdata });
-        }
-
-        results = {}
-        try {
-            handler(srcArray, function (data) {
-                if (!tpl) {
-                    return res.send(data);
-                }
-
-                exports.renderFile(path.resolve(configFolder, tpl), data, function (err, coderesult) {
-                    res.setHeader('Content-Type', 'application/json');
-                    if (!err) {
-                        res.send(coderesult);
-                    } else {
-                        res.statusCode = '505';
-                        res.send({ message: err.message });
-                    }
-                });
-
-            });
-        } catch (ex) {
-            res.statusCode = '505';
-            res.send({ message: ex.message });
-        }
+        });
+    } catch (ex) {
+        res.statusCode = '505';
+        res.send({ message: ex.message });
     }
 }
+
 
 exports.__express = function (path, options, fn) {
     if (options.compileDebug == undefined && process.env.NODE_ENV === 'production') {
@@ -146,8 +180,8 @@ exports.__express = function (path, options, fn) {
     exports.renderFile(path, options, fn);
 }
 
-exports.__jsonnet = createRoute;
+exports.__jsonnet = create_route;
 
-exports.registPlugin = function (key, func) {
-    plugmanger.set(key, func);
+exports.regist_adapter = function (key, func) {
+    adapter_manager.set(key, func);
 }

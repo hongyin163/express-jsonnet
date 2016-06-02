@@ -5,6 +5,5 @@ module.exports = {
 	"s1": {
 		"age": 29
 	},
-	"s2": "file://{dataFolder}\\data.json",
-	"s3": "http://localhost:3000/json/{id}/{name}",
+	"s2": "file://{dataFolder}\\data.json"
 }

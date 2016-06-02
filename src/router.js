@@ -16,18 +16,21 @@ function decode_param(val) {
     throw err;
   }
 }
-var router={
-	routeRegx:{},
-	match :function (config,pathname) {
-		var opts={};	
-		for(var p in config){
-			if(this.routeRegx[p]){
-				this.regexp=this.routeRegx[p];
-			}else{
+var router = {
+	routeRegxCache: {},
+	keysCache: {},
+	match: function (config, pathname) {
+		var opts = {};
+		for (var p in config) {
+			if (this.routeRegxCache[p]) {
+				this.regexp = this.routeRegxCache[p];
+				this.keys = this.keysCache[p];
+			} else {
 				this.regexp = pathRegexp(p, this.keys = [], opts);
-				this.routeRegx[p]=this.regexp;
+				this.routeRegxCache[p] = this.regexp;
+				this.keysCache[p] = this.keys;
 			}
-			
+
 			var m = this.regexp.exec(pathname);
 
 			if (!m) {
@@ -38,7 +41,8 @@ var router={
 
 			// store values
 			this.params = {};
-			this.path = p;
+			this.path = m[0];
+			this.route_path = p;
 
 			var keys = this.keys;
 			var params = this.params;
@@ -49,7 +53,7 @@ var router={
 				var val = decode_param(m[i]);
 
 				if (val !== undefined || !(hasOwnProperty.call(params, prop))) {
-				  params[prop] = val;
+					params[prop] = val;
 				}
 			}
 			return true;
@@ -58,4 +62,4 @@ var router={
 	}
 }
 
-module.exports=router;
+module.exports = router;

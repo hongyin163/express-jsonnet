@@ -1,8 +1,9 @@
 var http = require('http');
 var fs = require('fs');
 var path = require('path');
+var _ = require('lodash');
 module.exports = {
-	http: function (url, cb) {
+	http: function (url, opts, cb) {
 		http.get(url, (res) => {
 			var size = 0;
 			var chunks = [];
@@ -18,19 +19,11 @@ module.exports = {
 			cb && cb(e.message);
 		});
 	},
-	file: function (p, cb) {
-		var filepath = p.substring(p.indexOf('://') + 3);
+	file: function (p, opts, cb) {
+		var filepath = p.substring(p.indexOf('://') + 3);	
+		
 		fs.readFile(filepath, function (err, data) {
 			cb(err, data + "");
-		})
-	},
-	redis: function (key, cb) {
-
-	},
-	mongodb: function (argument) {
-		// body...
-	},
-	sql:function (argument) {
-		
+		});
 	}
 }

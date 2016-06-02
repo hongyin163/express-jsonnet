@@ -3,18 +3,24 @@
 		"data":"./data/index.js",
 		"tpl":"./tpl/index.jsonnet"
 	},
+	"/user/":{
+		"tpl":"./tpl/user.jsonnet"
+	},
 	"/nodata/":{
 		"tpl":"./tpl/user.jsonnet"
 	},
 	"/notpl/":{
-		"data":"./data/index.js"
+		"data":"./data/noparams.js"
 	},
-	"/index/:id/":{
+	"/index/:id/:name/":{
 		"data":"./data/index.js",
 		"tpl":"./tpl/index.jsonnet"
 	},
 	"/tpljs/:id/":{
 		"data":"./data/index.js",
 		"tpl":"./tpl/index.js"
+	},
+	"/allno/":{
+		
 	}
 }
