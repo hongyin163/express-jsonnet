@@ -16,7 +16,10 @@ var default_cache = {
     get: function (key, callback) {
         key = key.replace(/[\/,\?=]/g, '');
         var result = __cache[key];
-        callback && callback(result);
+        if (result)
+            callback && callback(null, result);
+        else
+            callback && callback(new Error('cache err'));
     }
 };
 
@@ -92,10 +95,11 @@ function create_route(options) {
         }
 
         if (__options.enalbeCache) {
-            __options.cache.get(req.pathname, function (result) {
+            __options.cache.get(req.pathname, function (err, result) {
                 if (result) {
+                    res.setHeader('data_from', 'cache');
                     return res.send(result);
-                } else {
+                } else {                   
                     handle_request(req, res, next)
                 }
             });
@@ -115,7 +119,7 @@ function handle_request(req, res, next) {
     if (!tpl && !src) {
         return res.send("Not config data source and data template");
     }
-    var tplFilePath='',dataFilePath='';
+    var tplFilePath = '', dataFilePath = '';
     //only have jsonnet tpl
     if (tpl && !src) {
         tplFilePath = path.resolve(configFolder, tpl);
@@ -130,7 +134,7 @@ function handle_request(req, res, next) {
                 res.send({ message: err.message });
             }
         });
-    }   
+    }
     //have src
     dataFilePath = path.resolve(configFolder, src);
     //获取数据源配置

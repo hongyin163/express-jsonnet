@@ -14,13 +14,11 @@
 	},
 	"/index/:id/:name/":{
 		"data":"./data/index.js",
-		"tpl":"./tpl/index.jsonnet"
+		"tpl":"./tpl/index.js"
 	},
 	"/tpljs/:id/":{
 		"data":"./data/index.js",
 		"tpl":"./tpl/index.js"
 	},
-	"/allno/":{
-		
-	}
+	"/allno/":{}
 }
